@@ -7,7 +7,7 @@ name = "tennis_court_tracker"
 version = "0.0.1"
 description = "A deep learning implementation of a tennis court tracker"
 authors = [
-  { name = "Sebastian Bitsch", email = "your@email.com" },
+  { name = "Sebastian Bitsch", email = "sebastianbitsch@protonmail.com" },
 ]
 license = { file = "LICENSE" }
 readme = "README.md"

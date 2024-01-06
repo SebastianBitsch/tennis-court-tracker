@@ -6,7 +6,7 @@
 
 PROJECT_NAME = tennis_court_tracker
 PYTHON_VERSION = 3.10
-PYTHON_INTERPRETER = python
+PYTHON_INTERPRETER = python3
 
 #################################################################################
 # COMMANDS                                                                      #
@@ -14,7 +14,7 @@ PYTHON_INTERPRETER = python
 
 ## Set up python interpreter environment
 create_environment:
-	conda create --name $(PROJECT_NAME) python=$(PYTHON_VERSION) --no-default-packages -y
+	$(PYTHON_INTERPRETER) -m venv .env
 
 ## Install Python Dependencies
 requirements:
