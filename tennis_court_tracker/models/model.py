@@ -26,8 +26,7 @@ class TrackNet(torch.nn.Module):
     def __init__(self, in_features: int, out_features: int) -> None:
         super(TrackNet, self).__init__()
 
-        self.model = nn.Sequential(
-            # Downsample
+        self.downsample_block = nn.Sequential(
             ConvBlock(in_channels=in_features, out_channels=64),
             ConvBlock(in_channels=64, out_channels=64),
             
@@ -44,8 +43,9 @@ class TrackNet(torch.nn.Module):
             ConvBlock(in_channels=256, out_channels=512),
             ConvBlock(in_channels=512, out_channels=512),
             ConvBlock(in_channels=512, out_channels=512),
+        )
 
-            # Upsample
+        self.upsample_block = nn.Sequential(
             nn.Upsample(scale_factor=2),
             ConvBlock(in_channels=512, out_channels=256),
             ConvBlock(in_channels=256, out_channels=256),
@@ -64,7 +64,9 @@ class TrackNet(torch.nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ """
-        return self.model(x)
+        x = self.downsample_block(x)
+        x = self.upsample_block(x)
+        return x
 
 
 if __name__ == "__main__":
