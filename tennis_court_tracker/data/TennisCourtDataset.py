@@ -101,8 +101,7 @@ class RandomCrop(object):
         top = np.random.randint(0, h - new_h + 1)
         left = np.random.randint(0, w - new_w + 1)
 
-        image = image[top: top + new_h,
-                      left: left + new_w]
+        image = image[top: top + new_h, left: left + new_w]
 
         keypoints = keypoints - [left, top]
 
