@@ -1,2 +1,0 @@
-from tennis_court_tracker.models.model import MyNeuralNet
-from tennis_court_tracker.predict_model import predict

@@ -18,3 +18,4 @@ matplotlib
 ipykernel
 opencv-python
 scikit-image
+omegaconf
