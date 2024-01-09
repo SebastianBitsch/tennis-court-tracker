@@ -8,7 +8,7 @@ from skimage.transform import resize
 class TennisCourtDataset(Dataset):
     """Tennis court dataset, adapted from: https://pytorch.org/tutorials/beginner/data_loading_tutorial.html """
 
-    def __init__(self, keypoints_file:str, images_dir:str, transform=None) -> None:
+    def __init__(self, keypoints_file:str, images_dir:str, labels_dir:str, transform=None) -> None:
         """
         Arguments:
             keypoints_file (string): Path to the csv file with annotations.
@@ -18,6 +18,7 @@ class TennisCourtDataset(Dataset):
         """
         self.keypoints_df = pd.read_csv(keypoints_file)
         self.images_dir = images_dir
+        self.labels_dir = labels_dir
         self.transform = transform
 
     def __len__(self):
@@ -29,10 +30,15 @@ class TennisCourtDataset(Dataset):
 
         img_name = os.path.join(self.images_dir, self.keypoints_df.iloc[idx]['image_name'])
         image = np.load(img_name)
-        keypoints = self.keypoints_df.iloc[idx, 2:]
-        keypoints = np.array([keypoints], dtype=float).reshape(-1, 2)
+
+        label_name = os.path.join(self.labels_dir, self.keypoints_df.iloc[idx]['image_name'])
+        label = np.load(label_name)
+
+        # keypoints = self.keypoints_df.iloc[idx, 2:]
+        # keypoints = np.array([keypoints], dtype=float).reshape(-1, 2)
         
-        sample = {'image': image, 'keypoints': keypoints}
+        # sample = {'image': image, 'keypoints': keypoints}
+        sample = {'image': image, 'label': label}
 
         if self.transform:
             sample = self.transform(sample)
@@ -54,7 +60,7 @@ class Rescale(object):
         self.output_size = output_size
 
     def __call__(self, sample):
-        image, keypoints = sample['image'], sample['keypoints']
+        image, label = sample['image'], sample['label']
 
         h, w = image.shape[:2]
         if isinstance(self.output_size, int):
@@ -67,13 +73,15 @@ class Rescale(object):
 
         new_h, new_w = int(new_h), int(new_w)
 
-        img = resize(image, (new_h, new_w, 3))
+        # TODO: This is pretty temporary
+        img = resize(image, (new_h, new_w, 3)).astype("float32")
+        label = resize(label, (new_h, new_w, 1)).astype("float32")
 
         # h and w are swapped for keypoints because for images,
         # x and y axes are axis 1 and 0 respectively
-        keypoints = keypoints * [new_w / w, new_h / h]
+        # keypoints = keypoints * [new_w / w, new_h / h]
 
-        return {'image': img, 'keypoints': keypoints}
+        return {'image': img, 'label': label}
 
 
 class RandomCrop(object):
@@ -111,15 +119,19 @@ class RandomCrop(object):
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
+    def __init__(self, device:str) -> None:
+        self.device = device
+
     def __call__(self, sample):
-        image, keypoints = sample['image'], sample['keypoints']
+        image, label = sample['image'], sample['label']
 
         # swap color axis because
         # numpy image: H x W x C
         # torch image: C x H x W
         image = image.transpose((2, 0, 1))
+        label = label.transpose((2, 0, 1))
 
         return {
-            'image': torch.Tensor(image),
-            'keypoints': torch.Tensor(keypoints)
+            'image': torch.tensor(image, device = self.device),
+            'keypoints': torch.tensor(label, device = self.device)
         }
