@@ -58,8 +58,8 @@ class TrackNet(torch.nn.Module):
             nn.Upsample(scale_factor=2),
             ConvBlock(in_channels=128, out_channels=64),
             ConvBlock(in_channels=64, out_channels=64),
-            ConvBlock(in_channels=64, out_channels=out_features),
-            nn.Softmax2d()
+            ConvBlock(in_channels=64, out_channels=255),
+            nn.Softmax(dim = 1) # Take the softmax over the color 255 channels to get the probability of each color
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -67,7 +67,6 @@ class TrackNet(torch.nn.Module):
         x = self.downsample_block(x)
         x = self.upsample_block(x)
         return x
-
 
 if __name__ == "__main__":
     a = TrackNet(3, 1)

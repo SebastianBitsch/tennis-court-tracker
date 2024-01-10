@@ -133,5 +133,5 @@ class ToTensor(object):
 
         return {
             'image': torch.tensor(image, device = self.device),
-            'keypoints': torch.tensor(label, device = self.device)
+            'keypoints': torch.tensor(label, device = self.device, dtype=torch.uint8).squeeze()
         }

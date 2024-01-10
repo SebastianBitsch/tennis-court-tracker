@@ -30,8 +30,7 @@ test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False,
 
 
 model = TrackNet(3, 1).to(device)
-# loss_fn = torch.nn.CrossEntropyLoss()
-loss_fn = torch.nn.MSELoss()
+loss_fn = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adadelta(model.parameters(), lr = lr)
 
 # wandb.init(
@@ -66,7 +65,7 @@ for epoch in range(epochs):
         optimizer.zero_grad()
 
         total_loss += loss.item()
-        if (batch_num % 100 == 0):
+        if (batch_num % 1 == 0):
             print(f"{batch_num}/{len(train_dataloader)} | loss: {loss:.2f}")
             # wandb.log({"loss": loss})
  
