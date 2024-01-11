@@ -1,12 +1,20 @@
 defaults:
   - override hydra/job_logging: custom
 
-seed: 1312
+data:
+  image_width: 640
+  image_height: 360
+
+  pct_train_split: 0.8
+  n_in_features: 3      # 3 for taking a single frame, 9 for taking 3 frames, etc.
+
 
 hyperparameters:
+  seed: 1312
   batch_size: 2
   epochs: 15
   learning_rate: 1.0
 
 wandb:
-  mode: "disabled" # "disabled" or "online" or "offline"
+  mode: disabled # "disabled" or "online" or "offline"
+  project_name: tennis-court-tracking
