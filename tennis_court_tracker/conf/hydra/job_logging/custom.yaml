@@ -1,0 +1,19 @@
+# Custom yaml file for overwriting the default logging format of hydra, See: https://hydra.cc/docs/configure_hydra/logging/
+# See the default parameters here: https://github.com/facebookresearch/hydra/blob/main/hydra/conf/hydra/job_logging/default.yaml
+version: 1
+disable_existing_loggers: false
+formatters:
+  simple:
+    format: '[%(levelname)s] - %(message)s'
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: simple
+    stream: ext://sys.stdout
+  file:
+    class: logging.FileHandler
+    formatter: simple
+    # absolute file path
+    filename: ${hydra.runtime.output_dir}/${hydra.job.name}.log
+root:
+  handlers: [console, file]

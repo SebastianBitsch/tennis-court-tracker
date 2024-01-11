@@ -1,3 +1,8 @@
+defaults:
+  - override hydra/job_logging: custom
+
+seed: 1312
+
 hyperparameters:
   batch_size: 2
   epochs: 15
