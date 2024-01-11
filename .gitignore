@@ -177,5 +177,7 @@ cython_debug/
 #.idea/
 
 /data/
+/models/
+/outputs/
 *.pdf
 /wandb
