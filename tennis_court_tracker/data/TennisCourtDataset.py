@@ -119,7 +119,7 @@ class RandomCrop(object):
 class ToTensor(object):
     """Convert ndarrays in sample to Tensors."""
 
-    def __init__(self, device:str) -> None:
+    def __init__(self, device:str = "cpu") -> None:
         self.device = device
 
     def __call__(self, sample):
@@ -133,5 +133,5 @@ class ToTensor(object):
 
         return {
             'image': torch.tensor(image, device = self.device),
-            'keypoints': torch.tensor(label, device = self.device, dtype=torch.uint8).squeeze()
+            'label': torch.tensor(label, device = self.device, dtype=torch.uint8).squeeze() # This has to be long for crossentropyloss to work on the cpu, for some reason - look into that uint8 works on mps
         }
