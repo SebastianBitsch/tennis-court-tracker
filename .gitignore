@@ -180,4 +180,4 @@ cython_debug/
 /models/
 /outputs/
 *.pdf
-/wandb
+/wandb/
