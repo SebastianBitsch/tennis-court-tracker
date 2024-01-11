@@ -23,7 +23,7 @@ class TrackNet(torch.nn.Module):
     TrackNet: A deep learning network for tracking high-speed and tiny objects in sports application
     https://findit.dtu.dk/en/catalog/5e061db2d9001d57e3218aae
     """
-    def __init__(self, in_features: int, out_features: int) -> None:
+    def __init__(self, in_features: int) -> None:
         super(TrackNet, self).__init__()
 
         self.downsample_block = nn.Sequential(
@@ -58,8 +58,7 @@ class TrackNet(torch.nn.Module):
             nn.Upsample(scale_factor=2),
             ConvBlock(in_channels=128, out_channels=64),
             ConvBlock(in_channels=64, out_channels=64),
-            ConvBlock(in_channels=64, out_channels=255),
-            nn.Softmax(dim = 1) # Take the softmax over the color 255 channels to get the probability of each color
+            ConvBlock(in_channels=64, out_channels=256)
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -68,9 +67,8 @@ class TrackNet(torch.nn.Module):
         x = self.upsample_block(x)
         return x
 
+
 if __name__ == "__main__":
-    a = TrackNet(3, 1)
+    a = TrackNet(3)
     x = torch.randn(4,3,640,360)
     print(a(x).shape)
-
-
