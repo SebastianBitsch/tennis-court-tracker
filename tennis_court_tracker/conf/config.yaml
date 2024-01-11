@@ -1,0 +1,7 @@
+hyperparameters:
+  batch_size: 2
+  epochs: 15
+  learning_rate: 1.0
+
+wandb:
+  mode: "disabled" # "disabled" or "online" or "offline"
