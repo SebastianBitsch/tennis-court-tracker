@@ -7,8 +7,9 @@ from omegaconf import DictConfig
 from hydra.utils import get_original_cwd, to_absolute_path
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
+from torchvision.utils import make_grid
 
-from tennis_court_tracker.data.TennisCourtDataset import TennisCourtDataset#, Rescale, ToTensor
+from tennis_court_tracker.data.TennisCourtDataset import TennisCourtDataset, RandomCrop, TransformWrapper
 from tennis_court_tracker.models.model import TrackNet
 
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ def train(config: DictConfig) -> None:
         images_dir = to_absolute_path("data/raw/images"),
         device = device,
         transform = transforms.Compose([
-            transforms.Resize((config.data.image_height, config.data.image_width), antialias=True)
-            # transforms.RandomCrop((config.data.image_height, config.data.image_width), antialias=True)
+            # TransformWrapper(transforms.Resize((config.data.image_height, config.data.image_width), antialias=True))
+            RandomCrop((config.data.image_height, config.data.image_width)),
         ])
     )
 
@@ -34,13 +35,18 @@ def train(config: DictConfig) -> None:
     validation_dataloader = DataLoader(validation_dataset, batch_size=config.hyperparameters.batch_size, shuffle=False, num_workers=0)
 
     model = TrackNet(in_features = config.data.n_in_features).to(device)
+    # Load model weights
+    if config.hyperparameters.continue_training_from_weights:
+        logger.info(f"Loading model state dict at: {config.hyperparameters.path_to_weights}")
+        model.load_state_dict(torch.load(config.hyperparameters.path_to_weights))
+
     loss_fn = torch.nn.CrossEntropyLoss()
     optimizer = torch.optim.Adadelta(model.parameters(), lr = config.hyperparameters.learning_rate)
 
     wandb.init(
         project = config.wandb.project_name,
         config = {
-            "architecture": "CNN",
+            "architecture": model.name,
             "dataset": "Custom-1",
             "learning_rate": config.hyperparameters.learning_rate,
             "epochs": config.hyperparameters.epochs,
@@ -53,7 +59,7 @@ def train(config: DictConfig) -> None:
     for epoch in range(config.hyperparameters.epochs):
         logger.info(f"**** Epoch {epoch+1}/{config.hyperparameters.epochs} ****")
 
-        total_loss = 0.0
+        training_loss = 0.0
         validation_loss = 0.0
 
         # Train
@@ -69,12 +75,11 @@ def train(config: DictConfig) -> None:
 
             optimizer.step()
             optimizer.zero_grad()
+            training_loss += loss.item()
 
-            total_loss += loss.item()
-            if (batch_num % 1 == 0):
+            if (batch_num % config.wandb.train_log_interval == 0):
                 logger.info(f"{batch_num + 1}/{len(train_dataloader)} | loss: {loss:.3f}")
-                wandb.log({"loss": loss})
-            break
+                wandb.log({"training_loss": training_loss / (batch_num + 1)})
 
         # Validate
         model.eval()
@@ -86,23 +91,26 @@ def train(config: DictConfig) -> None:
                 y_pred = model(x)
                 loss = loss_fn(y_pred, y)
                 validation_loss += loss.item()
-                logger.info(f"{batch_num + 1}/{len(train_dataloader)} | val loss: {loss.item():.3f}")
 
-                # Log a sample image
-                id = 0
-                if batch_num == id:
-                    im_true = y[id]
-                    im_pred = y_pred[id].argmax(dim=0)
-                    im_stack = torch.hstack([im_true, im_pred]).cpu().float()
-                    wandb.log({"sample_image": wandb.Image(im_stack, caption="Top: Input, Bottom: Output")})
+                if (batch_num % config.wandb.validation_log_interval == 0):
+                    logger.info(f"{batch_num + 1}/{len(validation_dataloader)} | val loss: {loss.item():.3f}")
+                    
+                    id = torch.randint(low=0, high=x.shape[0], size=(1,)).item()
+                    im = x[id]
+                    im_true = y[id].float().repeat(3,1,1)
+                    im_pred = y_pred[id].argmax(dim=0).float().repeat(3,1,1)
 
+                    grid = make_grid([im, im_true, im_pred])
+                    wandb.log({
+                        "validation_loss": validation_loss / (batch_num + 1),
+                        "sample_image": wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
+                    })
 
-        wandb.log({"train_loss": total_loss, "validation_loss" : validation_loss})
-        logger.info(f"Train loss: {total_loss:.3f},   | Val loss: {validation_loss:.3f}")
-        torch.save(model.state_dict(), "models/model16.pt")
+        torch.save(model.state_dict(), "models/model.pt")
 
     wandb.finish()
-    torch.save(model.state_dict(), "models/final_model16.pt")
+    torch.save(model.state_dict(), "models/final_model.pt")
+
 
 
 if __name__ == "__main__":
