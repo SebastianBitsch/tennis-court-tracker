@@ -1,8 +1,11 @@
 import json
+from typing import Any
 
 import torch
+import torchvision.transforms.functional as F
 
 from torch.utils.data import Dataset
+from torchvision import transforms
 from torchvision.io import read_image
 
 
@@ -25,17 +28,45 @@ class TennisCourtDataset(Dataset):
         image_id = self.annotations[idx]['id']
         image_path = f"{self.images_dir}/{image_id}.png"
         
-        image = read_image(image_path)
+        image = read_image(image_path).float()
         heatmap = generate_heatmap(image.shape[1:], self.annotations[idx]['kps'])
 
         if self.transform:
-            image = self.transform(image)
-            heatmap = self.transform(heatmap)
+            output = self.transform({"image" : image, "heatmap" : heatmap})
+            image = output['image']
+            heatmap = output['heatmap']
 
         return {
-            "image" : image.float().to(self.device), 
+            "image" : image.to(self.device), 
             "heatmap" : heatmap.squeeze().to(self.device)
         }
+
+class TransformWrapper:
+    """ Wraps a transform that operates on only the sample. See: https://stackoverflow.com/a/75723566/19877091 """
+    def __init__(self, transform: object):
+        self.transform = transform
+
+    def __call__(self, sample: dict) -> dict:
+        sample['image']   = self.transform(sample['image'])
+        sample['heatmap'] = self.transform(sample['heatmap'])
+        return sample
+
+
+class RandomCrop(object):
+    """
+    Custom random crop function to get the same random cropping for both the image and the heatmap. 
+    Using the built in RandomCrop function gives different croppings for the images
+    """
+    def __init__(self, output_size: int | tuple[int,int]) -> None:
+        assert isinstance(output_size, (int, tuple))
+        self.output_size = output_size
+
+    def __call__(self, sample: dict) -> dict:
+        i, j, h, w = transforms.RandomCrop.get_params(sample['image'], output_size=self.output_size)
+
+        sample['image'] = F.crop(sample['image'], i, j, h, w)
+        sample['heatmap'] = F.crop(sample['heatmap'], i, j, h, w)
+        return sample
 
 
 def gaussian_kernel(size:int, sigma2:int):
@@ -45,7 +76,7 @@ def gaussian_kernel(size:int, sigma2:int):
     kernel = torch.outer(x, x)
     return kernel
 
-def point_in_image(image_size: tuple[int,int], point: tuple[int,int], border_size:int):
+def is_point_in_image(image_size: tuple[int,int], point: tuple[int,int], border_size:int) -> bool:
     return 0 <= point[0] - border_size and 0 <= point[1] - border_size and point[0] + border_size < image_size[0] and point[1] + border_size < image_size[1]
 
 def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int = 5, sigma2:int = 10) -> torch.FloatTensor:
@@ -59,7 +90,7 @@ def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int = 5, sigma
     gaussian = (255 * gaussian_kernel(2 * radius, sigma2)).to(torch.uint8)
     
     for cx, cy in keypoints:
-        if not point_in_image(size, (cy, cx), radius):
+        if not is_point_in_image(size, (cy, cx), radius):
             continue
         heatmap[0, cy-radius:cy+radius, cx-radius:cx+radius] = gaussian
 
