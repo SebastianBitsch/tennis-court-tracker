@@ -1,5 +1,4 @@
 import json
-from typing import Any
 
 import torch
 import torchvision.transforms.functional as F
@@ -37,8 +36,8 @@ class TennisCourtDataset(Dataset):
             heatmap = output['heatmap']
 
         return {
-            "image" : image.to(self.device), 
-            "heatmap" : heatmap.squeeze().to(self.device)
+            "image" : image.to(self.device),    # TODO: We have to move tensors to GPU here since many transform operations arent implemented on MPS. This is much slower than instantiating on gpu 
+            "heatmap" : heatmap.to(self.device) # TODO: We have to move tensors to GPU here since many transform operations arent implemented on MPS. This is much slower than instantiating on gpu
         }
 
 class TransformWrapper:
@@ -51,6 +50,24 @@ class TransformWrapper:
         sample['heatmap'] = self.transform(sample['heatmap'])
         return sample
 
+
+class Normalize(object):
+    """ """
+    def __init__(self, interval: tuple[float, float] = (0, 1)) -> None:
+        assert interval == (0,1), "Normalize to other ranges than [0,1] is not supported yet"
+        self.interval = interval
+
+    def __call__(self, sample: dict) -> dict:
+        for name in sample.keys():
+            # Get to range 0-1 
+            sample[name] -= sample[name].min()
+            sample[name] /= sample[name].max()
+
+            # Scale to proper range
+            # ... TODO: Add support for that ...
+
+        return sample
+        
 
 class RandomCrop(object):
     """
@@ -79,19 +96,39 @@ def gaussian_kernel(size:int, sigma2:int):
 def is_point_in_image(image_size: tuple[int,int], point: tuple[int,int], border_size:int) -> bool:
     return 0 <= point[0] - border_size and 0 <= point[1] - border_size and point[0] + border_size < image_size[0] and point[1] + border_size < image_size[1]
 
-def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int = 5, sigma2:int = 10) -> torch.FloatTensor:
+
+def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int = 7, sigma2:int = 10) -> torch.FloatTensor:
     """
     Generate a "heatmap" of points on an image. 
     Every point will be represented by a gaussian on the image
     returns a uint8 array of values in range 0-255
     not all keypoints are sure to be in the image, especially true when image is cropped etc
     """
-    heatmap = torch.zeros((1, *size), dtype=torch.uint8)
-    gaussian = (255 * gaussian_kernel(2 * radius, sigma2)).to(torch.uint8)
+    heatmap = torch.zeros((len(keypoints), *size), dtype=torch.float32)
+    gaussian = gaussian_kernel(2 * radius, sigma2)
     
-    for cx, cy in keypoints:
+    for i, (cx, cy) in enumerate(keypoints):
         if not is_point_in_image(size, (cy, cx), radius):
             continue
-        heatmap[0, cy-radius:cy+radius, cx-radius:cx+radius] = gaussian
+        heatmap[i, cy-radius:cy+radius, cx-radius:cx+radius] = gaussian
 
     return heatmap
+# def generate_heatmap(size: tuple[int,int], keypoints:list, gaussian_size:int = 15, gaussian_sigma:int = 2) -> torch.FloatTensor:
+#     """
+#     Generate a "heatmap" of keypoints on an image. 
+#     Every point will be represented by a gaussian on the image
+#     returns a uint8 array for each layer of values in range 0-255
+#     not all keypoints are sure to be in the image, especially true when image is cropped etc
+#     """
+#     heatmaps = torch.zeros((len(keypoints), *size), dtype=torch.float32)
+    
+#     # TODO: This could be parallelized 
+#     # TODO: a = torch.tensor(range(len(keypoints)))
+#     # TODO: b = torch.tensor(keypoints)
+#     # TODO: idx = torch.cat([a.reshape(-1, 1),b],dim=1)
+#     for i, (cx, cy) in enumerate(keypoints):
+#         if 0 <= cx and 0 <= cy and cx < size[1] and cy < size[0]:
+#             heatmaps[i, cy, cx] = 1
+
+#     heatmaps = transforms.GaussianBlur(kernel_size=gaussian_size, sigma = gaussian_sigma)(heatmaps)
+#     return heatmaps
