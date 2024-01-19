@@ -23,11 +23,12 @@ class TrackNet(torch.nn.Module):
     TrackNet: A deep learning network for tracking high-speed and tiny objects in sports application
     https://findit.dtu.dk/en/catalog/5e061db2d9001d57e3218aae
     """
-    def __init__(self, in_features: int, out_features: int = 256) -> None:
+    def __init__(self, in_features: int, out_features: int = 256, take_sigmoid: bool = True) -> None:
         """ """
         super(TrackNet, self).__init__()
 
         self.name = f"TrackNet_{in_features}"
+        self.take_sigmoid = take_sigmoid
         self.downsample_block = nn.Sequential(
             ConvBlock(in_channels=in_features, out_channels=64),
             ConvBlock(in_channels=64, out_channels=64),
@@ -62,12 +63,13 @@ class TrackNet(torch.nn.Module):
             ConvBlock(in_channels=64, out_channels=64),
             ConvBlock(in_channels=64, out_channels=out_features)
         )
+        self.sigmoid = nn.Sigmoid()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ """
         x = self.downsample_block(x)
         x = self.upsample_block(x)
-        return x
+        return self.sigmoid(x) if self.take_sigmoid else x
 
 
 if __name__ == "__main__":
