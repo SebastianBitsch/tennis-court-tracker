@@ -1,6 +1,9 @@
 defaults:
   - override hydra/job_logging: custom
 
+base:
+  exp_name: default
+
 data:
   image_width: 640
   image_height: 360
@@ -9,7 +12,7 @@ data:
   n_in_features: 3      # 3 for taking a single frame, 9 for taking 3 frames, etc.
 
 hyperparameters:
-  continue_training_from_weights: true # if false a new model will train from scratch
+  continue_training_from_weights: false # if false a new model will train from scratch
   path_to_weights: models/model_good.pt                # path to the weights, should be in the /models/ dir
   seed: 1312
   batch_size: 2
@@ -19,5 +22,5 @@ hyperparameters:
 wandb:
   mode: disabled # "disabled" or "online" or "offline"
   project_name: tennis-court-tracking
-  train_log_interval: 10
-  validation_log_interval: 10
+  train_log_interval: 50
+  validation_log_interval: 50
