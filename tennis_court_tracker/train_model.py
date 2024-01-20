@@ -2,6 +2,7 @@ import torch
 import wandb
 import hydra
 import logging
+from itertools import chain
 
 from omegaconf import DictConfig
 from hydra.utils import get_original_cwd, to_absolute_path
@@ -9,7 +10,7 @@ from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.utils import make_grid
 
-from tennis_court_tracker.data.TennisCourtDataset import TennisCourtDataset, RandomCrop, TransformWrapper
+from tennis_court_tracker.data.TennisCourtDataset import TennisCourtDataset, RandomCrop, TransformWrapper, Normalize, RandomAffine
 from tennis_court_tracker.models.model import TrackNet
 
 logger = logging.getLogger(__name__)
@@ -24,23 +25,25 @@ def train(config: DictConfig) -> None:
         images_dir = to_absolute_path("data/raw/images"),
         device = device,
         transform = transforms.Compose([
-            # TransformWrapper(transforms.Resize((config.data.image_height, config.data.image_width), antialias=True))
-            RandomCrop((config.data.image_height, config.data.image_width)),
+            TransformWrapper(transforms.Resize((config.data.image_height, config.data.image_width), antialias=True)),
+            # RandomCrop((config.data.image_height, config.data.image_width)),
+            RandomAffine(im_size=(config.data.image_height, config.data.image_width), degrees = (-15, 15), translate = (0.2, 0.2), scale=(0.5, 1.5)),
+            Normalize()
         ])
     )
 
     train_dataset, validation_dataset = random_split(court_dataset, lengths = (config.data.pct_train_split, 1.0 - config.data.pct_train_split))
     
-    train_dataloader = DataLoader(train_dataset, batch_size=config.hyperparameters.batch_size, shuffle=True, num_workers=0)
-    validation_dataloader = DataLoader(validation_dataset, batch_size=config.hyperparameters.batch_size, shuffle=False, num_workers=0)
+    train_dataloader = DataLoader(train_dataset, batch_size=config.hyperparameters.batch_size, shuffle=True, num_workers=0)             # TODO: Find out of how to get more workers on MPS
+    validation_dataloader = DataLoader(validation_dataset, batch_size=config.hyperparameters.batch_size, shuffle=False, num_workers=0)  # TODO: Find out of how to get more workers on MPS
 
-    model = TrackNet(in_features = config.data.n_in_features).to(device)
+    model = TrackNet(in_features = config.data.n_in_features, out_features=14).to(device)
     # Load model weights
     if config.hyperparameters.continue_training_from_weights:
         logger.info(f"Loading model state dict at: {config.hyperparameters.path_to_weights}")
         model.load_state_dict(torch.load(config.hyperparameters.path_to_weights))
 
-    loss_fn = torch.nn.CrossEntropyLoss()
+    loss_fn = torch.nn.MSELoss()
     optimizer = torch.optim.Adadelta(model.parameters(), lr = config.hyperparameters.learning_rate)
 
     wandb.init(
@@ -68,18 +71,18 @@ def train(config: DictConfig) -> None:
             x = batch['image']
             y = batch['heatmap']
 
-            y_pred = model(x) # shape: [batch_size, 256, image_height, image_width]
+            y_pred = model(x) # shape: [batch_size, output_features, image_height, image_width]
 
             loss = loss_fn(y_pred, y)
             loss.backward()
 
             optimizer.step()
             optimizer.zero_grad()
-            training_loss += loss.item()
+            training_loss += loss
 
-            if (batch_num % config.wandb.train_log_interval == 0):
+            if (batch_num % config.wandb.train_log_interval == config.wandb.train_log_interval - 1):
                 logger.info(f"{batch_num + 1}/{len(train_dataloader)} | loss: {loss:.3f}")
-                wandb.log({"training_loss": training_loss / (batch_num + 1)})
+                wandb.log({"training_loss": training_loss.item() / (batch_num + 1)})
 
         # Validate
         model.eval()
@@ -90,26 +93,29 @@ def train(config: DictConfig) -> None:
 
                 y_pred = model(x)
                 loss = loss_fn(y_pred, y)
-                validation_loss += loss.item()
+                validation_loss += loss
 
-                if (batch_num % config.wandb.validation_log_interval == 0):
+                if (batch_num % config.wandb.validation_log_interval == config.wandb.validation_log_interval - 1):
                     logger.info(f"{batch_num + 1}/{len(validation_dataloader)} | val loss: {loss.item():.3f}")
-                    
-                    id = torch.randint(low=0, high=x.shape[0], size=(1,)).item()
-                    im = x[id]
-                    im_true = y[id].float().repeat(3,1,1)
-                    im_pred = y_pred[id].argmax(dim=0).float().repeat(3,1,1)
 
-                    grid = make_grid([im, im_true, im_pred])
+                    i = [im for im in x]
+                    
+                    heatmaps_true, _ = y.max(dim=1)
+                    t = [im.repeat(3,1,1) for im in heatmaps_true]
+
+                    heatmaps_pred, _ = y_pred.max(dim=1)
+                    p = [im.repeat(3,1,1) for im in heatmaps_pred]
+
+                    all_ims = list(chain.from_iterable(zip(i,t,p)))
+                    grid = make_grid(all_ims, nrow=3) # (3, n*W, n*H)
                     wandb.log({
-                        "validation_loss": validation_loss / (batch_num + 1),
+                        "validation_loss": validation_loss.item() / (batch_num + 1),
                         "sample_image": wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
                     })
 
-        torch.save(model.state_dict(), "models/model.pt")
+        torch.save(model.state_dict(), f"models/model_{config.base.exp_name}_{epoch+1}epoch.pt")
 
     wandb.finish()
-    torch.save(model.state_dict(), "models/final_model.pt")
 
 
 
