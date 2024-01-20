@@ -1,4 +1,5 @@
 import json
+from typing import Any
 
 import torch
 import torchvision.transforms.functional as F
@@ -67,7 +68,23 @@ class Normalize(object):
             # ... TODO: Add support for that ...
 
         return sample
-        
+
+
+class RandomAffine(object):
+    """ """
+    def __init__(self, im_size: tuple[int,int], degrees:tuple[int,int] = (-15, 15), translate:tuple[int,int] = (0.2, 0.2), scale:tuple[int,int]=(0.5, 1.5), shears:tuple[int,int]=None) -> None:
+        self.im_size = im_size
+        self.degrees = degrees
+        self.translate = translate
+        self.scale = scale
+        self.shears = shears
+
+    def __call__(self, sample: dict) -> dict:
+        i,j,k,l = transforms.RandomAffine.get_params(degrees = self.degrees, translate = self.translate, scale_ranges=self.scale, shears=self.shears, img_size=self.im_size)
+
+        sample['image'] = F.affine(sample['image'], i, j, k, l)
+        sample['heatmap'] = F.affine(sample['heatmap'], i, j, k, l)
+        return sample
 
 class RandomCrop(object):
     """
