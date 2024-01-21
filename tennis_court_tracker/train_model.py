@@ -27,24 +27,25 @@ def train(config: DictConfig) -> None:
         transform = transforms.Compose([
             TransformWrapper(transforms.Resize((config.data.image_height, config.data.image_width), antialias=True)),
             # RandomCrop((config.data.image_height, config.data.image_width)),
-            RandomAffine(im_size=(config.data.image_height, config.data.image_width), degrees = (-15, 15), translate = (0.2, 0.2), scale=(0.5, 1.5)),
+            # RandomAffine(im_size=(config.data.image_height, config.data.image_width), degrees = (-15, 15), translate = (0.2, 0.2), scale=(0.5, 1.5)),
             Normalize()
         ])
     )
 
     train_dataset, validation_dataset = random_split(court_dataset, lengths = (config.data.pct_train_split, 1.0 - config.data.pct_train_split))
     
-    train_dataloader = DataLoader(train_dataset, batch_size=config.hyperparameters.batch_size, shuffle=True, num_workers=0)             # TODO: Find out of how to get more workers on MPS
-    validation_dataloader = DataLoader(validation_dataset, batch_size=config.hyperparameters.batch_size, shuffle=False, num_workers=0)  # TODO: Find out of how to get more workers on MPS
+    train_dataloader = DataLoader(train_dataset, batch_size=config.hyperparameters.batch_size, shuffle=True, num_workers=0)             # TODO: Find out of how to get more workers on MPS, see: https://stackoverflow.com/questions/64772335/pytorch-w-parallelnative-cpp206
+    validation_dataloader = DataLoader(validation_dataset, batch_size=config.hyperparameters.batch_size, shuffle=False, num_workers=0)  # TODO: Find out of how to get more workers on MPS, see: https://github.com/pytorch/pytorch/issues/70344
 
-    model = TrackNet(in_features = config.data.n_in_features, out_features=14).to(device)
+    model = TrackNet(in_features = config.data.n_in_features, out_features=config.data.n_out_features).to(device)
     # Load model weights
     if config.hyperparameters.continue_training_from_weights:
         logger.info(f"Loading model state dict at: {config.hyperparameters.path_to_weights}")
         model.load_state_dict(torch.load(config.hyperparameters.path_to_weights))
 
     loss_fn = torch.nn.MSELoss()
-    optimizer = torch.optim.Adadelta(model.parameters(), lr = config.hyperparameters.learning_rate)
+    # optimizer = torch.optim.Adadelta(model.parameters(), lr = config.hyperparameters.learning_rate)
+    optimizer = torch.optim.Adam(model.parameters(), lr=config.hyperparameters.learning_rate, betas=(0.9, 0.999), weight_decay=0)
 
     wandb.init(
         project = config.wandb.project_name,
