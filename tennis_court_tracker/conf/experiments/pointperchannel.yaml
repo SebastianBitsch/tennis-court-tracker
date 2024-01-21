@@ -1,0 +1,5 @@
+base:
+  exp_name: channels14affinetransform
+
+wandb:
+  mode: online

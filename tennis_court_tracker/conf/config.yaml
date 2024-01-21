@@ -10,6 +10,7 @@ data:
 
   pct_train_split: 0.8  # rest is used for testing
   n_in_features: 3      # 3 for taking a single frame, 9 for taking 3 frames, etc.
+  n_out_features: 14    # equal to the number of keypoints we are looking for
 
 hyperparameters:
   continue_training_from_weights: false # if false a new model will train from scratch
@@ -17,7 +18,7 @@ hyperparameters:
   seed: 1312
   batch_size: 2
   epochs: 15
-  learning_rate: 1.0
+  learning_rate: 1e-5
 
 wandb:
   mode: disabled # "disabled" or "online" or "offline"
