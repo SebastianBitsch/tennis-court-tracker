@@ -2,9 +2,11 @@ defaults:
   - override hydra/job_logging: custom
 
 base:
-  exp_name: default
+  exp_name: lowlr_try2
 
 data:
+  images_dir_path: data/raw/images
+  annotations_file_path: data/raw/data_train.json
   image_width: 640
   image_height: 360
 
@@ -14,14 +16,14 @@ data:
 
 hyperparameters:
   continue_training_from_weights: false # if false a new model will train from scratch
-  path_to_weights: models/model_good.pt                # path to the weights, should be in the /models/ dir
+  path_to_weights: models/model_lowlr_5epoch.pt                # path to the weights, should be in the /models/ dir
   seed: 1312
   batch_size: 2
   epochs: 15
   learning_rate: 1e-5
 
 wandb:
-  mode: disabled # "disabled" or "online" or "offline"
+  mode: online # "disabled" or "online" or "offline"
   project_name: tennis-court-tracking
-  train_log_interval: 50
+  train_log_interval: 100
   validation_log_interval: 50
