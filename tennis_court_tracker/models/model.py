@@ -64,6 +64,7 @@ class TrackNet(torch.nn.Module):
             ConvBlock(in_channels=64, out_channels=out_features)
         )
         self.sigmoid = nn.Sigmoid()
+        self._init_weights()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ """
@@ -71,6 +72,16 @@ class TrackNet(torch.nn.Module):
         x = self.upsample_block(x)
         return self.sigmoid(x) if self.take_sigmoid else x
 
+    def _init_weights(self):
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d):
+                nn.init.uniform_(module.weight, -0.05, 0.05)
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+
+            elif isinstance(module, nn.BatchNorm2d):
+                nn.init.constant_(module.weight, 1)
+                nn.init.constant_(module.bias, 0)   
 
 if __name__ == "__main__":
     a = TrackNet(3)
