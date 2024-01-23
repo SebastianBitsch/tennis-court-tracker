@@ -55,7 +55,7 @@ class TransformWrapper:
 class Normalize(object):
     """ """
     def __init__(self, interval: tuple[float, float] = (0, 1)) -> None:
-        assert interval == (0,1), "Normalize to other ranges than [0,1] is not supported yet"
+        assert interval[0] == 0, "Normalize to other ranges than [0,x] is not supported yet"
         self.interval = interval
 
     def __call__(self, sample: dict) -> dict:
@@ -65,6 +65,7 @@ class Normalize(object):
             sample[name] /= sample[name].max()
 
             # Scale to proper range
+            sample[name] *= self.interval[1]
             # ... TODO: Add support for that ...
 
         return sample
