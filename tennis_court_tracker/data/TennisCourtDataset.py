@@ -29,7 +29,7 @@ class TennisCourtDataset(Dataset):
         image_path = f"{self.images_dir}/{image_id}.png"
         
         image = read_image(image_path).float()
-        heatmap = generate_heatmap(image.shape[1:], self.annotations[idx]['kps'])
+        heatmap = generate_heatmap(image.shape[1:], self.annotations[idx]['kps'], radius=15, sigma=100)
 
         if self.transform:
             output = self.transform({"image" : image, "heatmap" : heatmap})
@@ -103,49 +103,30 @@ class RandomCrop(object):
         return sample
 
 
-def gaussian_kernel(size:int, sigma2:int):
+def gaussian_kernel(radius:int, sigma2:int):
     """Generates a Gaussian kernel. Centered at the middle"""
-    x = torch.arange(-size // 2 + 1., size // 2 + 1.)
+    x = torch.arange(-radius, radius + 1)
     x = (1.0 / (2 * torch.pi * sigma2)) * torch.exp(-(((x - 0)** 2 + (x - 0)**2) / (2 * sigma2))) * (2 * torch.pi * sigma2)
     kernel = torch.outer(x, x)
     return kernel
 
-def is_point_in_image(image_size: tuple[int,int], point: tuple[int,int], border_size:int) -> bool:
+def is_kernel_in_image(image_size: tuple[int,int], point: tuple[int,int], border_size:int) -> bool:
     return 0 <= point[0] - border_size and 0 <= point[1] - border_size and point[0] + border_size < image_size[0] and point[1] + border_size < image_size[1]
 
 
-def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int = 7, sigma2:int = 10) -> torch.FloatTensor:
+def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int, sigma:float) -> torch.FloatTensor:
     """
     Generate a "heatmap" of points on an image. 
     Every point will be represented by a gaussian on the image
     returns a uint8 array of values in range 0-255
     not all keypoints are sure to be in the image, especially true when image is cropped etc
     """
+    gaussian = gaussian_kernel(radius, sigma)
     heatmap = torch.zeros((len(keypoints), *size), dtype=torch.float32)
-    gaussian = gaussian_kernel(2 * radius, sigma2)
     
     for i, (cx, cy) in enumerate(keypoints):
-        if not is_point_in_image(size, (cy, cx), radius):
+        if not is_kernel_in_image(size, (cy, cx), radius):
             continue
-        heatmap[i, cy-radius:cy+radius, cx-radius:cx+radius] = gaussian
+        heatmap[i, cy-radius:cy+radius+1, cx-radius:cx+radius+1] = gaussian
 
     return heatmap
-# def generate_heatmap(size: tuple[int,int], keypoints:list, gaussian_size:int = 15, gaussian_sigma:int = 2) -> torch.FloatTensor:
-#     """
-#     Generate a "heatmap" of keypoints on an image. 
-#     Every point will be represented by a gaussian on the image
-#     returns a uint8 array for each layer of values in range 0-255
-#     not all keypoints are sure to be in the image, especially true when image is cropped etc
-#     """
-#     heatmaps = torch.zeros((len(keypoints), *size), dtype=torch.float32)
-    
-#     # TODO: This could be parallelized 
-#     # TODO: a = torch.tensor(range(len(keypoints)))
-#     # TODO: b = torch.tensor(keypoints)
-#     # TODO: idx = torch.cat([a.reshape(-1, 1),b],dim=1)
-#     for i, (cx, cy) in enumerate(keypoints):
-#         if 0 <= cx and 0 <= cy and cx < size[1] and cy < size[0]:
-#             heatmaps[i, cy, cx] = 1
-
-#     heatmaps = transforms.GaussianBlur(kernel_size=gaussian_size, sigma = gaussian_sigma)(heatmaps)
-#     return heatmaps
