@@ -35,6 +35,7 @@ def log_images(x, y, y_pred):
 @hydra.main(version_base="1.2", config_path="conf", config_name="config")
 def train(config: DictConfig) -> None:
     device = "cuda" if torch.cuda.is_available() else "mps" if torch.backends.mps.is_available() else "cpu"
+    print(f"Training on {device}")
 
     court_dataset = TennisCourtDataset(
         annotations_file_path = to_absolute_path(config.data.annotations_file_path), 
@@ -88,13 +89,14 @@ def train(config: DictConfig) -> None:
             x = batch['image']
             y = batch['heatmap']
 
+            optimizer.zero_grad()
+
             y_pred = model(x) # shape: [batch_size, output_features, image_height, image_width]
 
             loss = loss_fn(y_pred, y)
             loss.backward()
-
             optimizer.step()
-            optimizer.zero_grad()
+            
             training_loss += loss
 
             if (batch_num % config.wandb.train_log_interval == config.wandb.train_log_interval - 1):

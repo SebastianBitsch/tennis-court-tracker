@@ -123,11 +123,11 @@ def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int, sigma:flo
     not all keypoints are sure to be in the image, especially true when image is cropped etc
     """
     gaussian = gaussian_kernel(radius, sigma)
-    heatmap = torch.zeros((len(keypoints), *size), dtype=torch.float32)
+    heatmap = torch.zeros((1, *size), dtype=torch.float32)
     
-    for i, (cx, cy) in enumerate(keypoints):
+    for (cx, cy) in keypoints:
         if not is_kernel_in_image(size, (cy, cx), radius):
             continue
-        heatmap[i, cy-radius:cy+radius+1, cx-radius:cx+radius+1] = gaussian
+        heatmap[0, cy-radius:cy+radius+1, cx-radius:cx+radius+1] = gaussian # TODO: Point could overlap tbh
 
     return heatmap
