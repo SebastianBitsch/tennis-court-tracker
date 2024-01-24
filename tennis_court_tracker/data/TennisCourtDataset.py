@@ -64,11 +64,16 @@ class Normalize(object):
     def __call__(self, sample: dict) -> dict:
         for name in sample.keys():
             # Get to range 0-1 
+            # TODO: I hate this - do we even really need to normalize / can it be done earlier (?)
             sample[name] -= sample[name].min()
-            sample[name] /= sample[name].max()
-
+            max = sample[name].max()
+            if 0 < max:
+                sample[name] /= max
+            else:
+                print("Image with no keypooints - i.e. target pure zeros")
             # Scale to proper range
-            sample[name] *= self.interval[1]
+            if self.interval[1] != 1:
+                sample[name] *= self.interval[1]
             # ... TODO: Add support for that ...
 
         return sample

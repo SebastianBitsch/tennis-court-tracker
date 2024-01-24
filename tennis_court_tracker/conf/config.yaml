@@ -19,7 +19,7 @@ hyperparameters:
   seed: 1312
   batch_size: 2
   epochs: 5
-  learning_rate: 1
+  learning_rate: 1e-5
 
 wandb:
   mode: disabled # "disabled" or "online" or "offline"

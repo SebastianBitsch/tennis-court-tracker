@@ -16,7 +16,7 @@ from tennis_court_tracker.models.tracknet import TrackNet
 logger = logging.getLogger(__name__)
 
 
-def log_images(x, y, y_pred):
+def make_image_grid(x, y, y_pred):
     i = [im for im in x]
     
     heatmaps_true, _ = y.max(dim=1)
@@ -27,9 +27,7 @@ def log_images(x, y, y_pred):
 
     all_ims = list(chain.from_iterable(zip(i,t,p)))
     grid = make_grid(all_ims, nrow=3) # (3, n*W, n*H)
-    return {
-        "sample_image": wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
-    }
+    return grid
 
 
 @hydra.main(version_base="1.2", config_path="conf", config_name="config")
@@ -42,9 +40,9 @@ def train(config: DictConfig) -> None:
         images_dir = to_absolute_path(config.data.images_dir_path),
         device = device,
         transform = transforms.Compose([
+            RandomAffine(im_size=(config.data.image_height, config.data.image_width), degrees = (-15, 15), translate = (0.2, 0.2), scale=(0.5, 1.5)),
             TransformWrapper(transforms.Resize((config.data.image_height, config.data.image_width), antialias=True)),
             # RandomCrop((config.data.image_height, config.data.image_width)),
-            # RandomAffine(im_size=(config.data.image_height, config.data.image_width), degrees = (-15, 15), translate = (0.2, 0.2), scale=(0.5, 1.5)),
             Normalize()
         ])
     )
@@ -101,9 +99,13 @@ def train(config: DictConfig) -> None:
 
             if (batch_num % config.wandb.train_log_interval == config.wandb.train_log_interval - 1):
                 logger.info(f"{batch_num + 1}/{len(train_dataloader)} | loss: {loss:.3f}")
-                wandb_log = log_images(x, y, y_pred)
-                wandb_log['training_loss'] = training_loss.item() / (batch_num + 1)
-                wandb.log(wandb_log)
+                grid = make_image_grid(x, y, y_pred)
+                wandb.log({
+                    "batch" : batch_num,
+                    "epoch" : epoch,
+                    "loss/train"  : training_loss.item() / (batch_num + 1),
+                    "sample_image": wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
+                })
 
         # Validate
         model.eval()
@@ -119,7 +121,9 @@ def train(config: DictConfig) -> None:
                 if (batch_num % config.wandb.validation_log_interval == config.wandb.validation_log_interval - 1):
                     logger.info(f"{batch_num + 1}/{len(validation_dataloader)} | val loss: {loss.item():.3f}")
                     wandb.log({
-                        "validation_loss": validation_loss.item() / (batch_num + 1)
+                        "batch" : batch_num,
+                        "epoch" : epoch,
+                        "log/val": validation_loss.item() / (batch_num + 1)
                     })
 
         torch.save(model.state_dict(), f"models/model_{config.base.exp_name}_{epoch+1}epoch.pt")
