@@ -5,7 +5,7 @@ import logging
 from itertools import chain
 
 from omegaconf import DictConfig
-from hydra.utils import get_original_cwd, to_absolute_path
+from hydra.utils import to_absolute_path
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.utils import make_grid
@@ -54,11 +54,11 @@ def train(config: DictConfig) -> None:
     train_dataloader = DataLoader(train_dataset, batch_size=config.hyperparameters.batch_size, shuffle=True, num_workers=0)             # TODO: Find out of how to get more workers on MPS, see: https://stackoverflow.com/questions/64772335/pytorch-w-parallelnative-cpp206
     validation_dataloader = DataLoader(validation_dataset, batch_size=config.hyperparameters.batch_size, shuffle=False, num_workers=0)  # TODO: Find out of how to get more workers on MPS, see: https://github.com/pytorch/pytorch/issues/70344
 
-    model = TrackNet(in_features = config.data.n_in_features, out_features=config.data.n_out_features).to(device)
-    # Load model weights
-    if config.hyperparameters.continue_training_from_weights:
-        logger.info(f"Loading model state dict at: {config.hyperparameters.path_to_weights}")
-        model.load_state_dict(torch.load(config.hyperparameters.path_to_weights))
+    model = TrackNet(
+        in_features = config.data.n_in_features, 
+        out_features = config.data.n_out_features, 
+        weights_path = config.hyperparameters.path_to_weights
+    ).to(device)
 
     loss_fn = torch.nn.MSELoss()
     # optimizer = torch.optim.Adadelta(model.parameters(), lr = config.hyperparameters.learning_rate)

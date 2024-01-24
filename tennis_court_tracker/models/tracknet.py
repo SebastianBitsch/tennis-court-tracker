@@ -23,12 +23,14 @@ class TrackNet(torch.nn.Module):
     TrackNet: A deep learning network for tracking high-speed and tiny objects in sports application
     https://findit.dtu.dk/en/catalog/5e061db2d9001d57e3218aae
     """
-    def __init__(self, in_features: int, out_features: int = 256, take_sigmoid: bool = True) -> None:
+    def __init__(self, in_features: int, out_features: int = 1, take_sigmoid: bool = True, weights_path: str | None = None) -> None:
         """ """
         super(TrackNet, self).__init__()
 
         self.name = f"TrackNet_{in_features}"
         self.take_sigmoid = take_sigmoid
+        
+        self.sigmoid = nn.Sigmoid()
         self.downsample_block = nn.Sequential(
             ConvBlock(in_channels=in_features, out_channels=64),
             ConvBlock(in_channels=64, out_channels=64),
@@ -63,25 +65,17 @@ class TrackNet(torch.nn.Module):
             ConvBlock(in_channels=64, out_channels=64),
             ConvBlock(in_channels=64, out_channels=out_features)
         )
-        self.sigmoid = nn.Sigmoid()
-        self._init_weights()
-    
+
+        if weights_path:
+            self.load_state_dict(torch.load(weights_path))
+
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """ """
         x = self.downsample_block(x)
         x = self.upsample_block(x)
         return self.sigmoid(x) if self.take_sigmoid else x
 
-    def _init_weights(self):
-        for module in self.modules():
-            if isinstance(module, nn.Conv2d):
-                nn.init.uniform_(module.weight, -0.05, 0.05)
-                if module.bias is not None:
-                    nn.init.constant_(module.bias, 0)
-
-            elif isinstance(module, nn.BatchNorm2d):
-                nn.init.constant_(module.weight, 1)
-                nn.init.constant_(module.bias, 0)   
 
 if __name__ == "__main__":
     a = TrackNet(3)
