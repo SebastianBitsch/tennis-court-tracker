@@ -15,8 +15,7 @@ data:
   n_out_features: 1    # equal to the number of keypoints we are looking for
 
 hyperparameters:
-  continue_training_from_weights: false # if false a new model will train from scratch
-  path_to_weights: models/model_lowlr_5epoch.pt                # path to the weights, should be in the /models/ dir
+  path_to_weights: ~  # if not None will continue training from these weights. path to the weights, should be in the /models/ dir
   seed: 1312
   batch_size: 2
   epochs: 5
