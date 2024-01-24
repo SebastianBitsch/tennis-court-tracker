@@ -1,7 +1,21 @@
 import numpy as np
+from dataclasses import dataclass
 
-class TennisCourt:
-    court_point_name = {
+@dataclass
+class Court:
+    point_names: dict[int, str]
+    point_positions: dict[int, tuple[float, float]]
+    line_names: dict[int, str]
+    lines: dict[int, tuple[int, int]]
+
+    @property
+    def points(self) -> np.ndarray:
+        """ Get the point positions as an array """
+        return np.array(list(self.point_positions.values()))
+
+
+TENNISCOURT = Court(
+    point_names = {
         0 : 'left-near-doubles-sideline',
         1 : 'left-near-singles-sideline',
         2 : 'right-near-singles-sideline',
@@ -16,8 +30,8 @@ class TennisCourt:
         11: 'left-far-singles-sideline',
         12: 'right-far-singles-sideline',
         13: 'right-far-doubles-sideline',
-    }
-    court_point_positions = {
+    },
+    point_positions = {
         0 : (0.0,   0),
         1 : (13.7,  0),
         2 : (96.0,  0),
@@ -32,8 +46,8 @@ class TennisCourt:
         11: (13.7, 237.7),
         12: (96.0, 237.7),
         13: (109.7, 237.7)
-    }
-    court_line_names = {
+    },
+    line_names = {
         0 : 'left-doubles-sideline',
         1 : 'left-singles-sideline',
         2 : 'right-singles-sideline',
@@ -43,8 +57,8 @@ class TennisCourt:
         6 : 'center-serviceline',
         7 : 'far-serviceline',
         8 : 'far-baseline'
-    }
-    court_lines = {
+    },
+    lines = {
         0 : (0,  10),
         1 : (1,  11),
         2 : (2,  12),
@@ -55,8 +69,8 @@ class TennisCourt:
         7 : (7,  9),
         8 : (10, 13)
     }
+)
 
-    court_points = np.array(list(court_point_positions.values()))
 
-a = TennisCourt()
-print(a.court_line_names)
+if __name__ == "__main__":
+    print(TENNISCOURT.points)
