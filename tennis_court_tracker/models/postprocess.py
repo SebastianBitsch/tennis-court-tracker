@@ -1,29 +1,34 @@
-import torch
 import cv2
-
+import torch
 import numpy as np
-from torchvision import transforms
+import torch.nn as nn
+from torchvision import transforms as TF
+from tennis_court_tracker.models.tracknet import TrackNet
 
 from scipy.optimize import linear_sum_assignment
 
-
-class PredictedPoints(torch.nn.Module):
+class PredictPoints(nn.Module):
     """ """
-    def __init__(self, threshold_value: int = 130, gaussian_kernel_size: int = 9, gaussian_sigma: float = 2.0) -> None:
-        """ """
-        super(PredictedPoints, self).__init__()
-        self.threshold = torch.nn.Threshold(threshold_value, 0)
-        self.blur = transforms.GaussianBlur(kernel_size = gaussian_kernel_size, sigma = gaussian_sigma)
 
-    def forward(self, x: torch.Tensor) -> list[np.ndarray]:
-        """ Takes as input a batch of binary images and returns a list of points"""
-        x = x.to(torch.uint8)
-        x = self.threshold(x)
-        x = self.blur(x)
-        
-        # TODO: I dont think there is a nice way to parallelize this unfortunately
+    def __init__(self, in_features:int, weights_path: str | None = None, device:str="cpu") -> None:
+        """ """
+        super(PredictPoints, self).__init__()
+
+        self.pipeline = nn.Sequential(
+            TrackNet(in_features = in_features, out_features=1, weights_path=weights_path), # TODO: out_features might need to change
+            TF.ConvertImageDtype(torch.uint8),
+            nn.Threshold(130, 0), # TODO: Threshold should maybe be dynamic (?)
+            TF.GaussianBlur(kernel_size = (9,9), sigma = 2)
+        ).to(device)
+
+    def forward(self, im: torch.Tensor) -> list:
+
+        with torch.no_grad():
+            pred_heatmaps = self.pipeline(im).squeeze(1) # dim: [batchsize, out_features, h, w]
+
+        # TODO: Iterate over the batch. I dont think this can be parallelized nicely
         predicted_points = []
-        for heatmap in x.cpu().numpy():
+        for heatmap in pred_heatmaps.cpu().numpy():
             pred_points = cv2.HoughCircles(
                 heatmap,
                 cv2.HOUGH_GRADIENT,
@@ -34,7 +39,7 @@ class PredictedPoints(torch.nn.Module):
                 minRadius=1,    # Minimum radius of the detected circles
                 maxRadius=20    # Maximum radius of the detected circles
             )
-            predicted_points.append(pred_points[0, :, :2])
+            predicted_points.append(pred_points.squeeze()[:, :2])
         
         return predicted_points
 
@@ -42,23 +47,27 @@ class PredictedPoints(torch.nn.Module):
 class FindHomography(torch.nn.Module):
     """ """
     def __init__(self) -> None:
-        """ """
+        """ NOTE: This doesnt work for batched input, expects just a single set of points. Not really a torch module"""
         super(FindHomography, self).__init__()
-        
-    def forward(self, true_points: np.ndarray, pred_points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+
+    def normalize_points(self, points: np.ndarray) -> np.ndarray:
+        return points - np.mean(points, axis=0)
+
+    def forward(self, court_points: np.ndarray, pred_points: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         """ """
-        norm_true = normalize_points(true_points)
-        norm_pred = normalize_points(pred_points)
+        norm_court = self.normalize_points(court_points)
+        norm_pred = self.normalize_points(pred_points)
 
-        # calculate a n x m distance matrix between predicted points and court points
-        distances_matrix = np.array([ np.linalg.norm(norm_pred - p, axis=1) for p in norm_true])
+        distances_matrix = np.array([ np.linalg.norm(norm_pred - p, axis=1) for p in norm_court])
 
-        # Calculate the cheapest way of arranging the point, sort of like bipartite matching
-        true_idxs, pred_idxs, = linear_sum_assignment(distances_matrix)
+        # https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.linear_sum_assignment.html
+        court_idxs, pred_idxs, = linear_sum_assignment(distances_matrix)
 
-        H, _ = cv2.findHomography(pred_points[pred_idxs, :], true_points[true_idxs, :], method=cv2.RANSAC, ransacReprojThreshold=5.0, maxIters=10000)
+        H, _ = cv2.findHomography(
+            pred_points[pred_idxs, :], 
+            court_points[court_idxs, :], 
+            method=cv2.RANSAC, 
+            ransacReprojThreshold=5.0, 
+            maxIters=10000
+        )
         return H, pred_idxs
-    
-
-def normalize_points(points: np.ndarray) -> np.ndarray:
-    return points - np.mean(points, axis=0)
