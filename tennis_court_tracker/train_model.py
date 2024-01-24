@@ -120,10 +120,12 @@ def train(config: DictConfig) -> None:
 
                 if (batch_num % config.wandb.validation_log_interval == config.wandb.validation_log_interval - 1):
                     logger.info(f"{batch_num + 1}/{len(validation_dataloader)} | val loss: {loss.item():.3f}")
+                    grid = make_image_grid(x, y, y_pred)
                     wandb.log({
                         "batch" : batch_num,
                         "epoch" : epoch,
-                        "log/val": validation_loss.item() / (batch_num + 1)
+                        "log/val": validation_loss.item() / (batch_num + 1),
+                        "images/val" : wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
                     })
 
         torch.save(model.state_dict(), f"models/model_{config.base.exp_name}_{epoch+1}epoch.pt")

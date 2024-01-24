@@ -67,7 +67,7 @@ class TrackNet(torch.nn.Module):
         )
 
         if weights_path:
-            self.load_state_dict(torch.load(weights_path))
+            self.load_state_dict(torch.load(weights_path, map_location="cpu"))
 
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:

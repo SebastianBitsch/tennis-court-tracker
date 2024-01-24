@@ -1,5 +1,4 @@
 import json
-from typing import Any
 
 import torch
 import torchvision.transforms.functional as F
