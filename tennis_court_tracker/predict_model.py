@@ -11,7 +11,7 @@ from torchvision import transforms
 from torchvision.utils import make_grid
 
 from tennis_court_tracker.data.TennisCourtDataset import TennisCourtDataset, RandomCrop, TransformWrapper
-from tennis_court_tracker.models.model import TrackNet
+from tennis_court_tracker.models.tracknet import TrackNet
 
 logger = logging.getLogger(__name__)
 
