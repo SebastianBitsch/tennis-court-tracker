@@ -12,11 +12,13 @@ from torchvision.io import read_image
 class TennisCourtDataset(Dataset):
     """ Tennis court dataset, adapted from: https://pytorch.org/tutorials/beginner/data_loading_tutorial.html """
 
-    def __init__(self, annotations_file_path:str, images_dir:str, device:str = 'cpu', transform = None) -> None:
+    def __init__(self, annotations_file_path:str, images_dir:str, heatmap_point_radius:int = 5, device:str = 'cpu', transform = None) -> None:
         """  """
         self.images_dir = images_dir
         self.transform = transform
         self.device = device
+        self.heatmap_point_radius = heatmap_point_radius
+
         with open(annotations_file_path) as f:
             self.annotations = json.load(f)
 
@@ -29,7 +31,7 @@ class TennisCourtDataset(Dataset):
         image_path = f"{self.images_dir}/{image_id}.png"
         
         image = read_image(image_path).float()
-        heatmap = generate_heatmap(image.shape[1:], self.annotations[idx]['kps'], radius=15, sigma=100)
+        heatmap = generate_heatmap(image.shape[1:], self.annotations[idx]['kps'], point_radius=self.heatmap_point_radius)
 
         if self.transform:
             output = self.transform({"image" : image, "heatmap" : heatmap})
@@ -40,6 +42,7 @@ class TennisCourtDataset(Dataset):
             "image" : image.to(self.device),    # TODO: We have to move tensors to GPU here since many transform operations arent implemented on MPS. This is much slower than instantiating on gpu 
             "heatmap" : heatmap.to(self.device) # TODO: We have to move tensors to GPU here since many transform operations arent implemented on MPS. This is much slower than instantiating on gpu
         }
+
 
 class TransformWrapper:
     """ Wraps a transform that operates on only the sample. See: https://stackoverflow.com/a/75723566/19877091 """
@@ -87,6 +90,7 @@ class RandomAffine(object):
         sample['heatmap'] = F.affine(sample['heatmap'], i, j, k, l)
         return sample
 
+
 class RandomCrop(object):
     """
     Custom random crop function to get the same random cropping for both the image and the heatmap. 
@@ -104,30 +108,30 @@ class RandomCrop(object):
         return sample
 
 
-def gaussian_kernel(radius:int, sigma2:int):
+def gaussian_kernel(radius:int, sigma:int):
     """Generates a Gaussian kernel. Centered at the middle"""
     x = torch.arange(-radius, radius + 1)
-    x = (1.0 / (2 * torch.pi * sigma2)) * torch.exp(-(((x - 0)** 2 + (x - 0)**2) / (2 * sigma2))) * (2 * torch.pi * sigma2)
-    kernel = torch.outer(x, x)
-    return kernel
+    x = (1.0 / (2 * torch.pi * sigma)) * torch.exp(-(((x - 0)** 2 + (x - 0)**2) / (2 * sigma))) * (2 * torch.pi * sigma)
+    return torch.outer(x, x)
+
 
 def is_kernel_in_image(image_size: tuple[int,int], point: tuple[int,int], border_size:int) -> bool:
     return 0 <= point[0] - border_size and 0 <= point[1] - border_size and point[0] + border_size < image_size[0] and point[1] + border_size < image_size[1]
 
 
-def generate_heatmap(size: tuple[int,int], keypoints:list, radius:int, sigma:float) -> torch.FloatTensor:
+def generate_heatmap(size: tuple[int,int], keypoints:list, point_radius:int) -> torch.FloatTensor:
     """
     Generate a "heatmap" of points on an image. 
     Every point will be represented by a gaussian on the image
     returns a uint8 array of values in range 0-255
     not all keypoints are sure to be in the image, especially true when image is cropped etc
     """
-    gaussian = gaussian_kernel(radius, sigma)
+    gaussian = gaussian_kernel(point_radius, point_radius*point_radius) # NOTE: We just use radius**2 as the sigma, thats good enough for this and one less param to tune
     heatmap = torch.zeros((1, *size), dtype=torch.float32)
     
     for (cx, cy) in keypoints:
-        if not is_kernel_in_image(size, (cy, cx), radius):
+        if not is_kernel_in_image(size, (cy, cx), point_radius):
             continue
-        heatmap[0, cy-radius:cy+radius+1, cx-radius:cx+radius+1] = gaussian # TODO: Point could overlap tbh
+        heatmap[0, cy-point_radius:cy+point_radius+1, cx-point_radius:cx+point_radius+1] = gaussian # TODO: Point could overlap tbh
 
     return heatmap
