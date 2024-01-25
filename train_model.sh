@@ -23,7 +23,7 @@
 #BSUB -R "span[hosts=1]"
 
 ### -- specify that we need X GB of memory per core/slot -- 
-#BSUB -R "rusage[mem=4GB]"
+#BSUB -R "rusage[mem=1GB]"
 
 ### -- set walltime limit: hh:mm --
 #BSUB -W 24:00

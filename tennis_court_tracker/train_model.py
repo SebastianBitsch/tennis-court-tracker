@@ -101,8 +101,8 @@ def train(config: DictConfig) -> None:
                 logger.info(f"{batch_num + 1}/{len(train_dataloader)} | loss: {loss:.3f}")
                 grid = make_image_grid(x, y, y_pred)
                 wandb.log({
-                    "batch" : batch_num,
                     "epoch" : epoch,
+                    "batch/train" : batch_num,
                     "loss/train"  : training_loss.item() / (batch_num + 1),
                     "sample_image": wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
                 })
@@ -122,9 +122,9 @@ def train(config: DictConfig) -> None:
                     logger.info(f"{batch_num + 1}/{len(validation_dataloader)} | val loss: {loss.item():.3f}")
                     grid = make_image_grid(x, y, y_pred)
                     wandb.log({
-                        "batch" : batch_num,
                         "epoch" : epoch,
-                        "log/val": validation_loss.item() / (batch_num + 1),
+                        "batch/val" : batch_num,
+                        "loss/val": validation_loss.item() / (batch_num + 1),
                         "images/val" : wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
                     })
 
