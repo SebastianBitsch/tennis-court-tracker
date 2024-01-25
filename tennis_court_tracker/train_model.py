@@ -104,7 +104,7 @@ def train(config: DictConfig) -> None:
                     "epoch" : epoch,
                     "batch/train" : batch_num,
                     "loss/train"  : training_loss.item() / (batch_num + 1),
-                    "sample_image": wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
+                    "images/train": wandb.Image(grid, caption="Left: Input | Middle: Labels | Right: Predicted")
                 })
 
         # Validate
