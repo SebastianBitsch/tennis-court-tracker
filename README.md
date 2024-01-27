@@ -1,6 +1,16 @@
-# tennis_court_tracker
+# court-tracker
 
-A deep learning implementation of a tennis court tracker
+Simple deep learning based court tracking from a single camera broadcast. The main model is a CNN model based on the [TrackNet](https://arxiv.org/abs/1907.03698) architecture. The model predicts a heatmap over the corner points of the court which are then postprocessed to find the point coordinates from which the homography matrix can be constructed. 
+
+## Results
+#### 16 examples of different frames
+<img width="884" alt="grid" src="https://github.com/SebastianBitsch/tennis-court-tracker/assets/72623007/9188e7f2-84d0-40da-b327-d1baf7756168">
+
+#### Video sequence
+![sequence](https://github.com/SebastianBitsch/tennis-court-tracker/assets/72623007/6493ca08-2d89-4f84-ba6f-72d4559fb94d)
+
+
+
 
 ## Project structure
 
