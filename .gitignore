@@ -181,3 +181,4 @@ data/*/
 /outputs/
 *.pdf
 /wandb/
+notebooks
