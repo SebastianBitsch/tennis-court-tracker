@@ -3,13 +3,16 @@ import torch
 import numpy as np
 import torch.nn as nn
 from torchvision import transforms as TF
-from tennis_court_tracker.models.tracknet import TrackNet
 
 from scipy.optimize import linear_sum_assignment
 from tennis_court_tracker.data.court import TENNISCOURT
 
 from skimage.morphology import erosion
 from skimage.morphology import disk 
+
+from torchvision import transforms
+
+from tennis_court_tracker.models.tracknet import TrackNet
 
 
 class PredictPoints(nn.Module):
@@ -20,6 +23,7 @@ class PredictPoints(nn.Module):
         super(PredictPoints, self).__init__()
 
         self.pipeline = nn.Sequential(
+            transforms.Resize((360, 640), antialias=False),
             TrackNet(in_features = in_features, out_features=1, weights_path=weights_path), # TODO: out_features might need to change
             TF.ConvertImageDtype(torch.uint8),
             nn.Threshold(254, 0), # TODO: Threshold should maybe be dynamic (?)

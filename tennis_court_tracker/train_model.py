@@ -41,7 +41,7 @@ def train(config: DictConfig) -> None:
         device = device,
         transform = transforms.Compose([
             RandomAffine(im_size=(config.data.image_height, config.data.image_width), degrees = (-15, 15), translate = (0.2, 0.2), scale=(0.5, 1.5)),
-            TransformWrapper(transforms.Resize((config.data.image_height, config.data.image_width), antialias=True)),
+            TransformWrapper(transforms.Resize((config.data.image_height, config.data.image_width), antialias=False)),
             # RandomCrop((config.data.image_height, config.data.image_width)),
             Normalize()
         ])

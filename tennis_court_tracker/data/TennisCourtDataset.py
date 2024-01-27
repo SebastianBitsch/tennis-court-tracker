@@ -29,8 +29,8 @@ class TennisCourtDataset(Dataset):
         image_id = self.annotations[idx]['id']
         image_path = f"{self.images_dir}/{image_id}.png"
         
-        image = read_image(image_path).float()
-        heatmap = generate_heatmap(image.shape[1:], self.annotations[idx]['kps'], point_radius=self.heatmap_point_radius)
+        image = read_image(image_path).to(self.device).float()
+        heatmap = generate_heatmap(image.shape[1:], self.annotations[idx]['kps'], point_radius=self.heatmap_point_radius, device=self.device)
 
         if self.transform:
             output = self.transform({"image" : image, "heatmap" : heatmap})
@@ -38,8 +38,8 @@ class TennisCourtDataset(Dataset):
             heatmap = output['heatmap']
 
         return {
-            "image" : image.to(self.device),    # TODO: We have to move tensors to GPU here since many transform operations arent implemented on MPS. This is much slower than instantiating on gpu 
-            "heatmap" : heatmap.to(self.device) # TODO: We have to move tensors to GPU here since many transform operations arent implemented on MPS. This is much slower than instantiating on gpu
+            "image" : image,
+            "heatmap" : heatmap
         }
 
 
@@ -123,7 +123,7 @@ def is_kernel_in_image(image_size: tuple[int,int], point: tuple[int,int], border
     return 0 <= point[0] - border_size and 0 <= point[1] - border_size and point[0] + border_size < image_size[0] and point[1] + border_size < image_size[1]
 
 
-def generate_heatmap(size: tuple[int,int], keypoints:list, point_radius:int) -> torch.FloatTensor:
+def generate_heatmap(size: tuple[int,int], keypoints:list, point_radius:int, device:str="cpu") -> torch.FloatTensor:
     """
     Generate a "heatmap" of points on an image. 
     Every point will be represented by a gaussian on the image
@@ -131,7 +131,7 @@ def generate_heatmap(size: tuple[int,int], keypoints:list, point_radius:int) -> 
     not all keypoints are sure to be in the image, especially true when image is cropped etc
     """
     gaussian = gaussian_kernel(point_radius, point_radius*point_radius) # NOTE: We just use radius**2 as the sigma, thats good enough for this and one less param to tune
-    heatmap = torch.zeros((1, *size), dtype=torch.float32)
+    heatmap = torch.zeros((1, *size), dtype=torch.float32, device=device)
     
     for (cx, cy) in keypoints:
         if not is_kernel_in_image(size, (cy, cx), point_radius):
